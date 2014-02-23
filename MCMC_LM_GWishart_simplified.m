@@ -52,11 +52,14 @@ p_gamma = sum(gamma);
 % Indicices of currently included variables
 ind = find(gamma);
 
+p_add = 0.5;
+
 % MCMC sampling
 for iter = 1: burnin + nmc
  
-    % For large p (when things may be slow), print out 10 iterations
-    if p > 200 && mod(iter, 10) == 0
+    % For large p (when things may be slow), print out 100 iterations
+    if p > 200 && mod(iter, 100) == 0
+        fprintf('padd = %.2f\n', p_add);
         fprintf('Iteration = %d\n', iter);
         fprintf('Number of included genes = %d\n', sum(gamma));
         fprintf('Number of add gene moves proposed %d and accepted %d\n', n_add_prop, n_add_accept);
@@ -66,7 +69,9 @@ for iter = 1: burnin + nmc
     end
     
     % Add/remove variable with prob 1/2
-    if (binornd(1, 0.5))
+    % INSTEAD, MAKE SURE WE ARE PROPOSING APPROX EQUALLY NUMBERS OF ADD AND
+    % REMOVES
+    if (binornd(1, p_add))
         % Add variable
         % Select variable to add from those not current included
         if (p_gamma < p)
@@ -97,15 +102,16 @@ for iter = 1: burnin + nmc
                 n_add_accept = n_add_accept + 1;
             end
         end
-        
     else
         % Remove variable
-        % Currently, with prob 1/2 proposing removing either a disconnected
-        % variable or one connected by a single edge
-        if (binornd(1, 0.5))
+        degree = sum(adj, 2) - 1;
+        disconnected_vars = (degree == 0) & gamma;
+        p1_vars = (degree == 1) & gamma;
+        
+        % Propose removing a variable connected by one edge 1/2 of the
+        % time, as long as there is one
+        if (sum(p1_vars) == 0 || (sum(disconnected_vars) > 0 && binornd(1, 0.5)))
             % Remove a disconnected variable
-            degree = (sum(adj, 2) - 1) / 2;
-            disconnected_vars = (degree == 0) & gamma;
             if (sum(disconnected_vars) > 0)
                 ind_dis = find(disconnected_vars);
                 
@@ -132,23 +138,12 @@ for iter = 1: burnin + nmc
                     ind = find(gamma);
                     n_gamma_accept = n_gamma_accept + 1;
                     n_remove_accept = n_remove_accept + 1;
-                    
-                    if (size(find(Omega(remove_index, ind)), 2) ~= 0)
-                        error('Nonzero values that should be zero after removing disconnected var')
-                    end
                 end
             else
                 n_no_prop = n_no_prop + 1;
             end
         else
-            % Remove a variable connected by a single edge
-            % Check that adj and Omega are consistent
-            if (sum(sum((Omega ~= 0) ~= adj)) ~= 0)
-                error('Omega and adj are not consistent before removing connected var')
-            end
-            
-            degree = sum(adj, 2) - 1;
-            p1_vars = (degree == 1) & gamma;
+            % Remove a variable connected by a single edge 
             if (sum(p1_vars) > 0)
                 ind_p1 = find(p1_vars);
                 
@@ -204,10 +199,6 @@ for iter = 1: burnin + nmc
                     % Zero out corresponding elements of Omega
                     Omega(remove_index, edge_ind) = 0;
                     Omega(edge_ind, remove_index) = 0;
-                    
-                    if (size(find(Omega(remove_index, find(gamma))), 2) ~= 0)
-                        error('Nonzero values in Omega that should be zeros after removing a connected var')
-                    end
                 end
                 
                 % Step 2(c)
@@ -224,16 +215,16 @@ for iter = 1: burnin + nmc
                 
                 %  Update Omega_gamma given graph
                 [Omega(ind, ind)] = GWishart_BIPS_maximumClique(delta_post, ...
-                    D_post(ind, ind), adj(ind, ind), Omega(ind, ind), 0, 1);
-                % if (min(eig(Omega)) < 0)
-                %     error('pos 2.1');
-                % end
- 
+                    D_post(ind, ind), adj(ind, ind), Omega(ind, ind), 0, 1); 
             else
                 n_no_prop = n_no_prop + 1;
             end
         end
-        
+    end
+    
+    % Update p_add to ensure balance of proposals
+    if (n_add_prop + n_remove_prop > 0)
+       p_add = (n_remove_prop) / (n_add_prop + n_remove_prop);
     end
     
     % Error check that all off-diagonal elements are in fact 0
