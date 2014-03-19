@@ -7,10 +7,7 @@ p = size(gamma, 1);
 gamma_diff = sum(gamma_prop - gamma);
 
 % Disconnected = true if no edges are changed
-if (disconnected)
-    % Difference in variable inclusion between gamma and gamma_prop
-    gamma_diff = sum(gamma_prop - gamma);
-    
+if (disconnected)    
     % Smaller number of included vars
     min_vars = min(sum(gamma_prop), sum(gamma));
     
@@ -59,7 +56,7 @@ else
     
     if (abs(log_MH - log_MH_check) > 1e-5)
         error('log_MH_r_Gamma', 'log MH r Gamma values do not match');
-    end   
+    end    
 end
 
 end
