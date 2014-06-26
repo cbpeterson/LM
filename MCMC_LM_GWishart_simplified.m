@@ -115,7 +115,7 @@ for iter = 1: burnin + nmc
         
         n_gamma_prop = n_gamma_prop + 1;
         
-        % Disconnected var, so no update to adacency
+        % Disconnected var, so no update to adjacency
         disconnected = 1;
         adj_prop = adj;
         
@@ -177,7 +177,7 @@ for iter = 1: burnin + nmc
             [Omega_prop] = GWishart_NOij_Gibbs(delta_prior, D_prior(ind_prop, ind_prop), ...
                 adj(ind_prop, ind_prop), Omega(ind_prop, ind_prop), i, j, propose_ij, 0, 1);
             G_ratio = log_GWishart_NOij_pdf(delta_prior, D_prior(ind_prop, ind_prop), Omega_prop, i, j, current_ij) - ...
-                log_GWishart_NOij_pdf(delta_prior, D_prior(ind_prop, ind_prop), Omega_prop, i, j, propose_ij) + ...
+                log_GWishart_NOij_pdf(delta_prior, D_prior(ind_prop, ind_prop), Omega_prop, i, j, propose_ij) - ...
                 log_H(delta_prior, D_prior(ind_prop, ind_prop), n, S(ind_prop, ind_prop), Omega(ind_prop, ind_prop), i, j);
         else
             % Remove variable connected by one edge
