@@ -49,8 +49,8 @@ ind = find(gamma);
 % MCMC sampling
 for iter = 1: burnin + nmc
  
-    % For large p (when things may be slow), print out 100 iterations
-    if p > 200 && mod(iter, 100) == 0
+    % Print out info every 100 iterations
+    if mod(iter, 100) == 0
         fprintf('Iteration = %d\n', iter);
         fprintf('Number of included genes = %d\n', sum(gamma));
         fprintf('Number of add disconnected gene moves proposed %d and accepted %d\n', n_add_disc_prop, n_add_disc_accept);
@@ -66,7 +66,7 @@ for iter = 1: burnin + nmc
     disconnected_vars = (degree == 0) & gamma;
     p1_vars = (degree == 1) & gamma;
     
-    disc_possible = (p_gamma < p) && (sum(disconnected_vars) > 0);
+    disc_possible = ((p_gamma < p) && (sum(disconnected_vars) > 0)) || (p_gamma == 0);
     conn_possible = (p_gamma < p) && (sum(p1_vars) > 0);
     if (disc_possible && conn_possible)
         disc_prop = binornd(1, 0.5);
@@ -85,7 +85,11 @@ for iter = 1: burnin + nmc
     
     if (disc_prop)
         % Disconnected variable
-        add_var = binornd(1, 0.5);
+        if (p_gamma > 0)
+          add_var = binornd(1, 0.5);
+        else
+           add_var = 1;
+        end
         
         if (add_var)
             % Add disconnected variable
