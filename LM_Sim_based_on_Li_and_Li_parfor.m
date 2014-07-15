@@ -2,16 +2,8 @@
 cd 'C:\Users\Marina\Desktop\LM only code\Code'
 addpath 'C:\Research\Graphical models\Papers\Wang Li 2012 with code\Code - original download';
 addpath 'C:\Users\Marina\Desktop\LM only code\Code\glmnet_matlab';
-if matlabpool('size') == 0
-    matlabpool(2)
-end
-
-% % For running on marina
-% cd '/home/cbp2/Linear models project/Code'
-% addpath '/home/cbp2/Linear models project/Wang Li 2012 with code/Code - original download';
-% addpath '/home/cbp2/Linear models project/Code/glmnet_matlab';
 % if matlabpool('size') == 0
-%     matlabpool(10)
+%    matlabpool(2)
 % end
 
 % Number of iterations to run at each setting for n
@@ -71,7 +63,9 @@ nmethod = 5;
 full_perf_summary = zeros([nmodel, nmetric, nmethod, niter]);
 
 % Also keep track of lambda2 selected values for Li and Li method
+% and edge selection for proposed method
 best_lambda2_save = zeros(nmodel, niter);
+edge_sel_perf = zeros(2, nmodel, niter); % First dim = tpr and fpr
 
 % Number of MCMC iterations for Bayesian methods
 burnin  = 10000;
@@ -129,6 +123,7 @@ for model = 1:nmodel
     % Set up Sigma matrix
     Sigma = eye(p);
     tf_indices = 1:(g_per_tf + 1):p;
+    
     for tf = 1:num_tfs
         for gene = 1:g_per_tf
             % Correlation of transcription factor to genes it controls is 0.7
@@ -188,9 +183,11 @@ for model = 1:nmodel
     S = U * sqrt(T);
     
     % Vectorize unique entries of adjacency for assessing edge selection
+    % and only consider edges for true variables
     indmx = reshape([1:p^2], p, p);
     upperind = indmx(triu(indmx, 1) > 0);
     Adj_true = Adj_true(upperind);
+    Adj_true = Adj_true(1:(p_true * (p_true - 1) / 2));
     
     % True model: first p_true genes contribute to outcome
     gamma_true = cat(1, ones(p_true, 1), zeros(p - p_true, 1));
@@ -200,11 +197,22 @@ for model = 1:nmodel
     
     % Parameters of MRF prior - how to determine proper settings for a and b?
     % Li and Zhang discuss this, esp phase transition property
-    lambda_mrf = p_true / p / 2;
-    scaling_factor = p / 100;
-    a = log(exp(-3) / scaling_factor);
-    b = log(exp(1.5) / scaling_factor);
     
+    % Approach here: fix b, then figure out values for lambda and a that
+    % correspond to appropriate prior probabilities for edges and
+    % variables
+    b = 0.1;
+    
+    % c_e = desired prior probability of edges = number of edges among true
+    % variables divided by total possible number of edges
+    c_e = ((sum(sum(abs(Omega_true(1:p_true, 1:p_true)) > 0)) - p_true) / 2) / ...
+        ( p  * (p - 1) / 2);
+    lambda_mrf = -c_e / (c_e * (exp(2 * b) - 1) - exp(2 * b));
+    
+    % c_v = desired prior probability of variables
+    c_v = p_true / p;
+    a = log(c_v / (1 - c_v)) - 2 * b * sqrt(p);
+
     % Prior probability of variable inclusion for Bayesian variable selection
     lambda_bvs = p_true / p;
     
@@ -217,10 +225,10 @@ for model = 1:nmodel
         fprintf('cur iteration = %d\n', cur_iter);
         
         % Read in simulation data from file
-        X = csvread(strcat(input_folder, 'X_', num2str(cur_iter), '.csv'));
-        X_test = csvread(strcat(input_folder, 'X_test_', num2str(cur_iter), '.csv'));
-        Y = csvread(strcat(input_folder, 'Y_', num2str(cur_iter), '.csv'));
-        Y_test = csvread(strcat(input_folder, 'Y_test_', num2str(cur_iter), '.csv'));
+        X = csvread(strcat(input_folder, 'X_', num2str(cur_iter), '_model', num2str(model), '.csv'));
+        X_test = csvread(strcat(input_folder, 'X_test_', num2str(cur_iter), '_model', num2str(model), '.csv'));
+        Y = csvread(strcat(input_folder, 'Y_', num2str(cur_iter), '_model', num2str(model), '.csv'));
+        Y_test = csvread(strcat(input_folder, 'Y_test_', num2str(cur_iter), '_model', num2str(model), '.csv'));
         
         % LASSO --------------------------------------------------------------
         % Fit lasso with 10-fold CV
@@ -347,7 +355,7 @@ for model = 1:nmodel
         
         if ~li_and_li_setting
             % Initial value of gamma (variable selection indicators)
-            gamma_init = binornd(1, p_true/p, p, 1);
+            gamma_init = zeros(p, 1);
             
             % Bayesian variable selection, not accounting for graph structure
             [gamma_save] = MCMC_LM_no_graph_simplified(X, Y, zeros(n, 5), ...
@@ -392,16 +400,42 @@ for model = 1:nmodel
             
             % Run MCMC sampler for joint graph and variable selection
             % Clinical covariates Z are set to all zeros here
-            % Since p is large, param summary_only is set to true
+            % Since p is large, param summary_only is set to true            
             tic
             [gamma_save, Omega_save, adj_save, ar_gamma, info] = MCMC_LM_GWishart_simplified(X, Y, zeros(n, 5), ...
                 a_0, b_0, h_alpha, h_beta, a, b, lambda_mrf, delta_prior, D_prior, ...
                 gamma_init, Omega_init, burnin, nmc, true);
             toc
             
-            csvwrite('mh_info_sim_orig.csv', [info.n_add_prop', info.n_add_accept', info.n_remove_prop', info.n_remove_accept', info.n_no_prop'])
-            csvwrite('full_gamma_sim_orig.csv', info.full_gamma');
-            csvwrite('node_degrees_sim_orig.csv', info.node_degrees');
+            % Collect additional performance information for proposed
+            % method
+            csvwrite(strcat('./Output/mh_info_model', num2str(model), '_iter', ...
+                num2str(cur_iter), '.csv'), ...
+                [info.n_add_disc_prop', info.n_add_disc_accept' ...
+                info.n_remove_disc_prop', info.n_remove_disc_accept', ...
+                info.n_add_conn_prop', info.n_add_conn_accept' ...
+                info.n_remove_conn_prop', info.n_remove_conn_accept', ...
+                info.n_no_prop']);
+            csvwrite(strcat('./Output/full_gamma__model', num2str(model), '_iter', ...
+                num2str(cur_iter), '.csv'), info.full_gamma');
+            csvwrite(strcat('./Output/node_degrees_model', num2str(model), '_iter', ...
+                num2str(cur_iter), '.csv'), info.node_degrees');
+            
+            % Get performance of graph structure learning
+            
+            % Save plot of MCMC performance
+            % NOTE: may need to turn this off when running in batch mode on
+            % the cluster
+            h = plot(1:(burnin + nmc), sum(info.full_gamma, 1))
+            hold on
+            line([1,(burnin + nmc)], [p_true, p_true], 'Color', 'green')
+            plot(1:(burnin + nmc), sum(info.full_gamma(1:p_true, :), 1), 'Color', 'red')
+            hold off
+            xlabel('Iteration')
+            ylabel('Number of variables')
+            title('Green = true, red = true selections, blue = total selections')
+            saveas(h, strcat('./Output/MCMC_traceplot_model', num2str(model), '_iter', ...
+                num2str(cur_iter), '.png'), 'png');
             
             ppi_var = mean(gamma_save, 2);
             ppi_edges = adj_save;
@@ -413,19 +447,24 @@ for model = 1:nmodel
             % Edges selected using marginal PPI threshold of 0.5
             sel_edges = ppi_edges > 0.5;
             
-            % Check selected edges against true graph
+            % Check selected edges against true graph (i.e. true edges
+            % among true variables)
             sel_edges = sel_edges(upperind);
+            sel_edges = sel_edges(1: (p_true * (p_true - 1) / 2));
             tp_edges = sum(sel_edges & Adj_true);
             fp_edges = sum(sel_edges & ~Adj_true);
             tn_edges = sum(~sel_edges & ~Adj_true);
             fn_edges = sum(~sel_edges & Adj_true);
             
-            % True positive rate and false positive rate for variable selection
+            % True positive rate and false positive rate for edge
+            % selection among true variables
             tpr_edges = tp_edges / (tp_edges + fn_edges);
             fpr_edges = fp_edges / (fp_edges + tn_edges);
             
             fprintf('edge_tpr = %g\n', tpr_edges);
             fprintf('edge_fpr = %g\n', fpr_edges);
+            
+            edge_sel_perf(:, model, cur_iter) = [tpr_edges, fpr_edges];
             
             % Compute prediction as MCMC avg prediction given var selection
             my_pred = zeros(n, 1);
@@ -466,8 +505,9 @@ end
 matlabpool close
 
 % Write full values to file
-csvwrite('Perf_Li_and_Li_sim.csv', full_perf_summary);
-csvwrite('Li_and_Li_best_lambda2.csv', best_lambda2_save);
+csvwrite('./Output/Perf_Li_and_Li_sim.csv', full_perf_summary);
+csvwrite('./Output/Li_and_Li_best_lambda2.csv', best_lambda2_save);
+csvwrite('./Output/LM_graph_edge_sel_perf.csv', edge_sel_perf);
 
 % Prepare table 1 as in Li and Li paper
 table1 = zeros(nmodel * 2, nmethod * nmetric);
@@ -481,7 +521,7 @@ for model = 1:nmodel
         end
     end
 end
-csvwrite('Li_and_Li_table1_summary.csv', table1);
+csvwrite('./Output/Li_and_Li_table1_summary.csv', table1);
 
 % Look at relationship between Lambda2 values and sens, spec, mcc, and PMSE
 % for each model in terms of diff from EN

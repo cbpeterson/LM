@@ -3,14 +3,13 @@
 % comparison to previous results
 
 % For running locally
-cd 'C:/Dropbox/Research/Graphical models/Linear model setting/Code'
-addpath 'C:\Dropbox\Research\Graphical models\Papers\Wang Li 2012 with code\Code - original download';
+cd 'C:\Users\Marina\Desktop\LM only code\Code';
+addpath 'C:\Research\Graphical models\Papers\Wang Li 2012 with code\Code - original download';
 
-niter = 50;
+niter = 100;
 
-% Settings from Li and Li paper - run first three methods to replicate
-% results in their paper
-li_and_li_setting = false;
+% Settings from Li and Li paper
+li_and_li_setting = true;
 if li_and_li_setting
     % Number of transcription factors
     num_tfs = 200;
@@ -151,9 +150,9 @@ for model = 1:nmodel
         % Center Y_test
         Y_test = Y_test - repmat(mean(Y_test, 1), n, 1);
         
-        csvwrite(strcat(input_folder, 'X_', num2str(iter), '.csv'), X);
-        csvwrite(strcat(input_folder, 'X_test_', num2str(iter), '.csv'), X_test);
-        csvwrite(strcat(input_folder, 'Y_', num2str(iter), '.csv'), Y);
-        csvwrite(strcat(input_folder, 'Y_test_', num2str(iter), '.csv'), Y_test);
+        csvwrite(strcat(input_folder, 'X_', num2str(iter), '_model', num2str(model), '.csv'), X);
+        csvwrite(strcat(input_folder, 'X_test_', num2str(iter), '_model', num2str(model), '.csv'), X_test);
+        csvwrite(strcat(input_folder, 'Y_', num2str(iter), '_model', num2str(model), '.csv'), Y);
+        csvwrite(strcat(input_folder, 'Y_test_', num2str(iter), '_model', num2str(model), '.csv'), Y_test);
     end
 end
