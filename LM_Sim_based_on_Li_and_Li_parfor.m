@@ -7,8 +7,7 @@ addpath 'C:\Users\Marina\Desktop\LM only code\Code\glmnet_matlab';
 % end
 
 % Number of iterations to run at each setting for n
-% TODO: increase, preferably to 25 - 50
-niter = 10;
+niter = 100;
 
 % In case I need to debug
 dbstop if error;
@@ -211,7 +210,7 @@ for model = 1:nmodel
     
     % c_v = desired prior probability of variables
     c_v = p_true / p;
-    a = log(c_v / (1 - c_v)) - 2 * b * sqrt(p);
+    a = log(c_v / (1 - c_v)) - 2 * b * p / 10;
 
     % Prior probability of variable inclusion for Bayesian variable selection
     lambda_bvs = p_true / p;
@@ -493,16 +492,17 @@ for model = 1:nmodel
             cur_perf_summary(3, 5) = mcc_var;
             cur_perf_summary(4, 5) = my_pmse;
             cur_perf_summary(5, 5) = my_pmse_median;
-            
-            model_perf_summary(:, :, cur_iter) = cur_perf_summary;
         end
+        
+        % Record performance for current iteration
+        model_perf_summary(:, :, cur_iter) = cur_perf_summary;
     end
 
     csvwrite(strcat('Perf_Li_and_Li_model', num2str(model), '.csv'), model_perf_summary);
     full_perf_summary(model, :, :, :) = model_perf_summary;
 end
 
-matlabpool close
+% matlabpool close
 
 % Write full values to file
 csvwrite('./Output/Perf_Li_and_Li_sim.csv', full_perf_summary);
