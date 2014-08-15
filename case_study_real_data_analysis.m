@@ -21,10 +21,6 @@ Z = [age, gender];
 % Standardize these
 Z = zscore(Z);
 
-% "Center" Y on log scale based on uncensored observations
-mean_y = mean(log(t_star(delta == 1)));
-t_star = exp(log(t_star) - mean_y);
-
 % Shape and scale of inverse gamma prior on tau^2
 % Parameters chosen based on recmmendations in Stingo paper
 a_0 = 3;

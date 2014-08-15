@@ -1,5 +1,5 @@
 function [gamma_save, Omega_save, adj_save, ar_gamma, info, W_save] = MCMC_LM_GWishart_AFT(X, T, dcen, Z, ...
-    a_0, b_0, h_alpha, h_beta, a, b, lambda, delta_prior, D_prior, ...
+    a_0, b_0, h_0, h_alpha, h_beta, a, b, lambda, delta_prior, D_prior, ...
     gamma, Omega, burnin, nmc, summary_only)
 
 [n, p] = size(X);
@@ -134,7 +134,7 @@ for iter = 1: burnin + nmc
         adj_prop = adj;
         
         % Compute MH ratio on log scale
-        log_r = log_r_y(gamma, gamma_prop, X, W, Z, h_alpha, h_beta, a_0, b_0) + ...
+        log_r = log_r_y(gamma, gamma_prop, X, W, Z, h_0, h_alpha, h_beta, a_0, b_0) + ...
             log_r_G_gamma(gamma, gamma_prop, adj, adj_prop, a, b, lambda, disconnected) + ...
             q_ratio;
         
@@ -234,7 +234,7 @@ for iter = 1: burnin + nmc
         disconnected = 0;
         
         % Compute MH ratio on log scale
-        log_r = log_r_y(gamma, gamma_prop, X, W, Z, h_alpha, h_beta, a_0, b_0) + ...
+        log_r = log_r_y(gamma, gamma_prop, X, W, Z, h_0, h_alpha, h_beta, a_0, b_0) + ...
             log_r_G_gamma(gamma, gamma_prop, adj, adj_prop, a, b, lambda, disconnected) + ...
             q_ratio + G_ratio;
         
@@ -356,7 +356,7 @@ for iter = 1: burnin + nmc
     end
     
     X_gamma = X(:, find(gamma));
-    Pr = eye(n) + h_alpha * (Z * Z') + h_beta * (X_gamma * X_gamma');
+    Pr = eye(n) + h_0 * (ones(n, 1) * ones(1, n)) + h_alpha * (Z * Z') + h_beta * (X_gamma * X_gamma');
     mu = zeros(n, 1);
     W = multrunct(W, mu, 2 * a_0, Pr, 2 * b_0, dcen, Y);
     

@@ -116,8 +116,11 @@ for i = 1:n
     Y(i) = normrnd(X(i, :) * beta, sqrt(tau_sq));
 end
 
-% Center Y
-Y = Y - repmat(mean(Y, 1), n, 1);
+% DON'T Center Y. Instead add 100
+Y = Y + 100;
+
+% Parameter h_0 affects variance of normal prior on intercept
+h_0 = 1e6;
 
 % True event times
 T = exp(Y);
@@ -141,7 +144,7 @@ gamma_init = zeros(p, 1);
 tic
 [gamma_save, Omega_save, adj_save, ar_gamma, info, W_save] = MCMC_LM_GWishart_AFT(X, ...
     T_star, dcen, zeros(n, 5), ...
-    a_0, b_0, h_alpha, h_beta, a, b, lambda_mrf, delta_prior, D_prior, ...
+    a_0, b_0, h_0, h_alpha, h_beta, a, b, lambda_mrf, delta_prior, D_prior, ...
     gamma_init, Omega_init, burnin, nmc, true);
 toc
 
@@ -202,3 +205,17 @@ title(sprintf('Comparison between true and estimated survival\n times for censor
 
 % In future, look at full MCMC results, see if these (or their running mean)
 % approach true value
+
+% Check if we approach correct W value across iterations for censored W
+% Choose a censored value at random
+cens_ind = find(~dcen, 1);
+h = plot(1:(burnin + nmc), info.full_W(cens_ind, :))
+hold on
+line([1,(burnin + nmc)], [log(T(cens_ind)), log(T(cens_ind))], 'Color', 'green')
+line([1,(burnin + nmc)], [log(T_star(cens_ind)), log(T_star(cens_ind))], 'Color', 'red')
+% MCMC average
+% line([1,(burnin + nmc)], [mean(W_save(cens_ind, :)), mean(W_save(cens_ind, :))], 'Color', 'yellow')
+hold off
+xlabel('Iteration')
+ylabel('Value of W')
+title('Green = true value of log(T), red = log(T star), blue = sampled W values')
