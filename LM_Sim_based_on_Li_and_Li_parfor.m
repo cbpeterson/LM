@@ -205,12 +205,17 @@ for model = 1:nmodel
     % c_e = desired prior probability of edges = number of edges among true
     % variables divided by total possible number of edges
     c_e = ((sum(sum(abs(Omega_true(1:p_true, 1:p_true)) > 0)) - p_true) / 2) / ...
-        ( p  * (p - 1) / 2);
+        (p  * (p - 1) / 2);
     lambda_mrf = -c_e / (c_e * (exp(2 * b) - 1) - exp(2 * b));
     
     % c_v = desired prior probability of variables
     c_v = p_true / p;
     a = log(c_v / (1 - c_v)) - 2 * b * p / 10;
+    
+    % Parameters for prior distribution on non-selected variables
+    h_gamma = 100;
+    delta_c = p;
+    k_0 = 1;
 
     % Prior probability of variable inclusion for Bayesian variable selection
     lambda_bvs = p_true / p;
@@ -402,7 +407,7 @@ for model = 1:nmodel
             % Since p is large, param summary_only is set to true            
             tic
             [gamma_save, Omega_save, adj_save, ar_gamma, info] = MCMC_LM_GWishart_simplified(X, Y, zeros(n, 5), ...
-                a_0, b_0, h_alpha, h_beta, a, b, lambda_mrf, delta_prior, D_prior, ...
+                a_0, b_0, h_alpha, h_beta, a, b, lambda_mrf, delta_prior, D_prior, h_gamma, k_0, delta_c, ...
                 gamma_init, Omega_init, burnin, nmc, true);
             toc
             
