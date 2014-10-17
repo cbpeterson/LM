@@ -58,11 +58,11 @@ for iter = 1: burnin + nmc
     % Print out info every 100 iterations
     if mod(iter, 100) == 0
         fprintf('Iteration = %d\n', iter);
-        fprintf('Number of included genes = %d\n', sum(gamma));
-        fprintf('Number of add disconnected gene moves proposed %d and accepted %d\n', n_add_disc_prop, n_add_disc_accept);
-        fprintf('Number of remove disconnected gene moves proposed %d and accepted %d\n', n_remove_disc_prop, n_remove_disc_accept);
-        fprintf('Number of add connectd gene moves proposed %d and accepted %d\n', n_add_conn_prop, n_add_conn_accept);
-        fprintf('Number of remove connected gene moves proposed %d and accepted %d\n', n_remove_conn_prop, n_remove_conn_accept);
+        fprintf('Number of included variables = %d\n', sum(gamma));
+        fprintf('Number of add disconnected variable moves proposed %d and accepted %d\n', n_add_disc_prop, n_add_disc_accept);
+        fprintf('Number of remove disconnected variable moves proposed %d and accepted %d\n', n_remove_disc_prop, n_remove_disc_accept);
+        fprintf('Number of add connected variable moves proposed %d and accepted %d\n', n_add_conn_prop, n_add_conn_accept);
+        fprintf('Number of remove connected variable moves proposed %d and accepted %d\n', n_remove_conn_prop, n_remove_conn_accept);
         fprintf('Number of times we could not make a proposal %d \n', n_no_prop);
         fprintf('Number of included edges %d \n\n', (sum(sum(adj)) - p) / 2);
     end
@@ -132,7 +132,8 @@ for iter = 1: burnin + nmc
             d_ii = D_prior(remove_index, remove_index);
             
             % Prop ratio for MH
-            q_ratio = log(sum(disconnected_vars)) - log(p - p_gamma + 1);
+            q_ratio = log(sum(disconnected_vars)) - log(p - p_gamma + 1) + ...
+                log(gampdf(Omega(remove_index, remove_index), 0.5 * delta_post, 2 / D_post(add_index, add_index)));
         end
         
         n_gamma_prop = n_gamma_prop + 1;
@@ -186,6 +187,11 @@ for iter = 1: burnin + nmc
             omega_ii = Omega_prop(add_index, add_index);
             d_ii = D_prior(add_index, add_index);
             
+            % Need to make sure diagonal entry of Omega used below in log_H is
+            % nonzero
+            Omega_log_H = Omega;
+            Omega_log_H(add_index, add_index) = omega_add_index_prop;
+            
             % Prop ratio for MH
             q_ratio = log(p - p_gamma) + log(p_gamma) - log(1 + sum(p1_vars)) - ...
               log(gampdf(omega_add_index_prop, 0.5 * delta_post, 2 / D_post(add_index, add_index)));
@@ -215,7 +221,8 @@ for iter = 1: burnin + nmc
                 Omega_prop(ind_prop, ind_prop), i, j, current_ij) - ...
                 log_GWishart_NOij_pdf(delta_prior, D_prior(ind_prop, ind_prop), ...
                 Omega_prop(ind_prop, ind_prop), i, j, propose_ij) - ...
-                log_H(delta_prior, D_prior(ind_prop, ind_prop), n, S(ind_prop, ind_prop), Omega(ind_prop, ind_prop), i, j);
+                log_H(delta_prior, D_prior(ind_prop, ind_prop), n, S(ind_prop, ind_prop), ...
+                  Omega_log_H(ind_prop, ind_prop), i, j);
         else
             % Remove variable connected by one edge
             ind_p1 = find(p1_vars);
