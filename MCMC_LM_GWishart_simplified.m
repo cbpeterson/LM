@@ -1,5 +1,5 @@
 function [gamma_save, Omega_save, adj_save, ar_gamma, info] = MCMC_LM_GWishart_simplified(X, Y, Z, ...
-    a_0, b_0, h_alpha, h_beta, a, b, lambda, delta_prior, D_prior, h_gamma, k_0, delta_c, ...
+    a_0, b_0, h_alpha, h_beta, a, b, lambda, delta_prior, D_prior, ...
     gamma, Omega, burnin, nmc, summary_only)
 
 [n, p] = size(X);
@@ -40,17 +40,11 @@ adj = abs(Omega) > 1e-5;
 % Zero out elements of Omega close to 0
 Omega = Omega .* adj;
 
-% Initial version of Sigma
-Sig = inv(Omega);
-
 % Number of currently included variables
 p_gamma = sum(gamma);
 
 % Indicices of currently included variables
 ind = find(gamma);
-
-% No intercept term included here
-h_0 = 0;
 
 % MCMC sampling
 for iter = 1: burnin + nmc
@@ -107,16 +101,8 @@ for iter = 1: burnin + nmc
             gamma_prop(add_index) = 1;
             n_add_disc_prop = n_add_disc_prop + 1;
             
-            % Need to propose new diagonal entry for Omega
-            omega_add_index_prop = gamrnd(0.5 * delta_post, 2 / D_post(add_index, add_index));
-            Omega_prop = Omega;
-            Omega_prop(add_index, add_index) = omega_add_index_prop;
-            omega_ii = Omega_prop(add_index, add_index);
-            d_ii = D_prior(add_index, add_index);
-            
             % Prop ratio for MH
-            q_ratio = log(p - p_gamma) - log(1 + sum(disconnected_vars)) - ...
-                log(gampdf(omega_add_index_prop, 0.5 * delta_post, 2 / D_post(add_index, add_index)));
+            q_ratio = log(p - p_gamma) - log(1 + sum(disconnected_vars));
         else
             % Remove disconnected variable
             ind_dis = find(disconnected_vars);
@@ -126,10 +112,6 @@ for iter = 1: burnin + nmc
             gamma_prop = gamma;
             gamma_prop(remove_index) = 0;
             n_remove_disc_prop = n_remove_disc_prop + 1;
-            Omega_prop = Omega;
-            Omega_prop(remove_index, remove_index) = 0;
-            omega_ii = Omega(remove_index, remove_index);
-            d_ii = D_prior(remove_index, remove_index);
             
             % Prop ratio for MH
             q_ratio = log(sum(disconnected_vars)) - log(p - p_gamma + 1);
@@ -142,22 +124,18 @@ for iter = 1: burnin + nmc
         adj_prop = adj;
         
         % Compute MH ratio on log scale
-        log_r = log_r_y(gamma, gamma_prop, X, Y, Z, h_0, h_alpha, h_beta, a_0, b_0) + ...
-            log_r_X(gamma, gamma_prop, X, Omega, Omega_prop, h_gamma, k_0, delta_c) + ...
-            log_r_G_gamma(gamma, gamma_prop, adj, adj_prop, a, b, lambda, disconnected, ...
-              omega_ii, delta_prior, d_ii) + ...
+        log_r = log_r_y(gamma, gamma_prop, X, Y, Z, 0, h_alpha, h_beta, a_0, b_0) + ...
+            log_r_G_gamma(gamma, gamma_prop, adj, adj_prop, a, b, lambda, disconnected) + ...
             q_ratio;
         
         % Accept proposal with probability r
         if (log(rand(1)) < log_r)
             if (add_var)
                 gamma(add_index) = 1;
-                Omega = Omega_prop;
                 p_gamma = p_gamma + 1;
                 n_add_disc_accept = n_add_disc_accept + 1;
             else
                 gamma(remove_index) = 0;
-                Omega = Omega_prop;
                 p_gamma = p_gamma - 1;
                 n_remove_disc_accept = n_remove_disc_accept + 1;
             end
@@ -179,16 +157,8 @@ for iter = 1: burnin + nmc
             ind_prop = find(gamma_prop);
             n_add_conn_prop = n_add_conn_prop + 1;
             
-            % Need to propose new diagonal entry for Omega
-            omega_add_index_prop = gamrnd(0.5 * delta_post, 2 / D_post(add_index, add_index));
-            Omega_prop = Omega;
-            Omega_prop(add_index, add_index) = omega_add_index_prop;
-            omega_ii = Omega_prop(add_index, add_index);
-            d_ii = D_prior(add_index, add_index);
-            
             % Prop ratio for MH
-            q_ratio = log(p - p_gamma) + log(p_gamma) - log(1 + sum(p1_vars)) - ...
-              log(gampdf(omega_add_index_prop, 0.5 * delta_post, 2 / D_post(add_index, add_index)));
+            q_ratio = log(p - p_gamma) + log(p_gamma) - log(1 + sum(p1_vars));
             
             % Now need to deal with updates to G and Omega
             % Pick a currently included variable
@@ -208,13 +178,10 @@ for iter = 1: burnin + nmc
             j = find(change_inds_gamma_prop, 1, 'last');
             current_ij = 0;
             propose_ij = 1;
-            Omega_prop(ind_prop, ind_prop) = GWishart_NOij_Gibbs(delta_prior, ...
-                D_prior(ind_prop, ind_prop), ...
-                adj(ind_prop, ind_prop), Omega_prop(ind_prop, ind_prop), i, j, propose_ij, 0, 1);
-            G_ratio = log_GWishart_NOij_pdf(delta_prior, D_prior(ind_prop, ind_prop), ...
-                Omega_prop(ind_prop, ind_prop), i, j, current_ij) - ...
-                log_GWishart_NOij_pdf(delta_prior, D_prior(ind_prop, ind_prop), ...
-                Omega_prop(ind_prop, ind_prop), i, j, propose_ij) - ...
+            [Omega_prop] = GWishart_NOij_Gibbs(delta_prior, D_prior(ind_prop, ind_prop), ...
+                adj(ind_prop, ind_prop), Omega(ind_prop, ind_prop), i, j, propose_ij, 0, 1);
+            G_ratio = log_GWishart_NOij_pdf(delta_prior, D_prior(ind_prop, ind_prop), Omega_prop, i, j, current_ij) - ...
+                log_GWishart_NOij_pdf(delta_prior, D_prior(ind_prop, ind_prop), Omega_prop, i, j, propose_ij) - ...
                 log_H(delta_prior, D_prior(ind_prop, ind_prop), n, S(ind_prop, ind_prop), Omega(ind_prop, ind_prop), i, j);
         else
             % Remove variable connected by one edge
@@ -228,12 +195,6 @@ for iter = 1: burnin + nmc
             
             % Prop ratio for MH
             q_ratio = log(sum(p1_vars)) - log(p - p_gamma + 1) - log(p_gamma - 1);
-            
-            % Make sure precision matrix is updated
-            Omega_prop = Omega;
-            Omega_prop(remove_index, remove_index) = 0;
-            omega_ii = Omega(remove_index, remove_index);
-            d_ii = D_prior(remove_index, remove_index);
             
             % Now need to deal with updates to G and Omega
             edge_ind = setdiff(find(adj(remove_index, :)), remove_index);
@@ -252,10 +213,10 @@ for iter = 1: burnin + nmc
             j = find(change_inds_gamma, 1, 'last');
             current_ij = 1;
             propose_ij = 0;
-            Omega_prop(ind, ind) = GWishart_NOij_Gibbs(delta_prior, D_prior(ind, ind), ...
+            [Omega_prop] = GWishart_NOij_Gibbs(delta_prior, D_prior(ind, ind), ...
                 adj(ind, ind), Omega(ind, ind), i, j, propose_ij, 0, 1);
-            G_ratio = log_GWishart_NOij_pdf(delta_prior, D_prior(ind, ind), Omega_prop(ind, ind), i, j, current_ij) - ...
-                log_GWishart_NOij_pdf(delta_prior, D_prior(ind, ind), Omega_prop(ind, ind), i, j, propose_ij) + ...
+            G_ratio = log_GWishart_NOij_pdf(delta_prior, D_prior(ind, ind), Omega_prop, i, j, current_ij) - ...
+                log_GWishart_NOij_pdf(delta_prior, D_prior(ind, ind), Omega_prop, i, j, propose_ij) + ...
                 log_H(delta_prior, D_prior(ind, ind), n, S(ind, ind), Omega(ind, ind), i, j);
         end
         
@@ -263,10 +224,8 @@ for iter = 1: burnin + nmc
         disconnected = 0;
         
         % Compute MH ratio on log scale
-        log_r = log_r_y(gamma, gamma_prop, X, Y, Z, h_0, h_alpha, h_beta, a_0, b_0) + ...
-            log_r_X(gamma, gamma_prop, X, Omega, Omega_prop, h_gamma, k_0, delta_c) + ...
-            log_r_G_gamma(gamma, gamma_prop, adj, adj_prop, a, b, lambda, disconnected, ...
-              omega_ii, delta_prior, d_ii) + ...
+        log_r = log_r_y(gamma, gamma_prop, X, Y, Z, 0, h_alpha, h_beta, a_0, b_0) + ...
+            log_r_G_gamma(gamma, gamma_prop, adj, adj_prop, a, b, lambda, disconnected) + ...
             q_ratio + G_ratio;
         
         % Accept proposal with probability r
@@ -275,16 +234,12 @@ for iter = 1: burnin + nmc
                 gamma(add_index) = 1;
                 p_gamma = p_gamma + 1;
                 n_add_conn_accept = n_add_conn_accept + 1;
-                
-                % Set diagonal entry of Omega to be nonzero
-                Omega(add_index, add_index) = Omega_prop(add_index, add_index);
             else
                 gamma(remove_index) = 0;
                 p_gamma = p_gamma - 1;
                 n_remove_conn_accept = n_remove_conn_accept + 1;
                 
                 % Zero out corresponding elements of Omega
-                Omega(remove_index, remove_index) = 0;
                 Omega(remove_index, edge_ind) = 0;
                 Omega(edge_ind, remove_index) = 0;
             end
@@ -377,11 +332,18 @@ for iter = 1: burnin + nmc
         end
     end
     
-    %  Update Omega_gamma given graph and fill in adj. Also update Sig
-    Sig = zeros(p);
-    [Omega(ind, ind), Sig(ind, ind)] = GWishart_BIPS_maximumClique(delta_post, ...
+    %  Update Omega_gamma given graph and fill in adj
+    [Omega(ind, ind)] = GWishart_BIPS_maximumClique(delta_post, ...
         D_post(ind, ind), adj_gamma, Omega(ind, ind), 0, 1);
     [adj(ind, ind)] = adj_gamma;
+    
+    % Update remaining entries of Omega
+    for i = 1:p
+        if ~gamma(i)
+            % Note that parameter scale = 1/rate
+            Omega(i, i) = gamrnd(0.5 * delta_post, 2 / D_post(i, i));
+        end
+    end
     
     if iter > burnin
         gamma_save(:, iter-burnin) = gamma;
