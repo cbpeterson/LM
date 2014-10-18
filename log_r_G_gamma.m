@@ -11,7 +11,9 @@ if (disconnected)
     % Smaller number of included vars
     min_vars = min(sum(gamma_prop), sum(gamma));
     
-    log_MH = gamma_diff * (a + min_vars * log(1 - lambda));
+    log_MH = gamma_diff * (a + min_vars * log(1 - lambda)) + ...
+        log(calc_C(sum(gamma), b, lambda)) - ...
+        log(calc_C(sum(gamma_prop), b, lambda));
 else
     % Assumption in paper is that adjacency matrix has 0's along the diagonal,
     % while here is has 1's, so need to subtract eye(p)
