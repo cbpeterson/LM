@@ -9,6 +9,9 @@ gamma_save = zeros(p, nmc);
 % Number of currently included variables
 p_gamma = sum(gamma);
 
+% Intercept term not included here
+h_0 = 0;
+
 % MCMC sampling
 for iter = 1: burnin + nmc
     
@@ -25,7 +28,7 @@ for iter = 1: burnin + nmc
             gamma_prop(add_index) = 1;
             
             % Compute MH ratio on log scale
-            log_r = log_r_y(gamma, gamma_prop, X, Y, Z, h_alpha, h_beta, a_0, b_0) + ...
+            log_r = log_r_y(gamma, gamma_prop, X, Y, Z, h_0, h_alpha, h_beta, a_0, b_0) + ...
                 log(lambda) - log(1 - lambda) + ...
                 log(p - p_gamma) - log(1 + p_gamma);
             
@@ -47,7 +50,7 @@ for iter = 1: burnin + nmc
             gamma_prop(remove_index) = 0;
             
             % Compute MH ratio on log scale
-            log_r = log_r_y(gamma, gamma_prop, X, Y, Z, h_alpha, h_beta, a_0, b_0) + ...
+            log_r = log_r_y(gamma, gamma_prop, X, Y, Z, h_0, h_alpha, h_beta, a_0, b_0) + ...
                 log(1 - lambda) - log(lambda) + ...
                 log(p_gamma) - log(p - p_gamma + 1);
             
