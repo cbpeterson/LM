@@ -1,5 +1,5 @@
 % For running locally
-cd 'C:\Users\Marina\Desktop\LM only code\Code'
+cd 'C:\Users\Marina\Desktop\LM only code\Code\branch3 - sample full graph'
 addpath 'C:\Research\Graphical models\Papers\Wang Li 2012 with code\Code - original download';
 addpath 'C:\Users\Marina\Desktop\LM only code\Code\glmnet_matlab';
 % if matlabpool('size') == 0
@@ -25,7 +25,7 @@ if li_and_li_setting
     % Number of genes with sign changed in models 2 and 4
     g_change = 3;
     
-    input_folder = './Simulation/Inputs/FullDim/';
+    input_folder = '../Simulation/Inputs/FullDim/';
 else
     % Number of transcription factors
     num_tfs = 40;
@@ -36,7 +36,7 @@ else
     % Number of genes with sign changed in models 2 and 4
     g_change = 2;
     
-    input_folder = './Simulation/Inputs/ReducedDim/';
+    input_folder = '../Simulation/Inputs/ReducedDim/';
 end
 
 % Sample size for training and test sets
@@ -47,9 +47,6 @@ p = num_tfs * (g_per_tf + 1);
 
 % Since Z's are set to 0 here, this param does not matter
 h_alpha = 0;
-
-% Prior param for G-Wishart
-delta_prior = 3;
 
 % Record performance summary
 % Dim 1: 4 = models 1 to 4
@@ -186,31 +183,14 @@ for model = 1:nmodel
     indmx = reshape([1:p^2], p, p);
     upperind = indmx(triu(indmx, 1) > 0);
     Adj_true = Adj_true(upperind);
-    Adj_true = Adj_true(1:(p_true * (p_true - 1) / 2));
     
     % True model: first p_true genes contribute to outcome
     gamma_true = cat(1, ones(p_true, 1), zeros(p - p_true, 1));
     
-    % Prior param for G-Wishart
-    D_prior = eye(p);
-    
     % Parameters of MRF prior - how to determine proper settings for a and b?
     % Li and Zhang discuss this, esp phase transition property
-    
-    % Approach here: fix b, then figure out values for lambda and a that
-    % correspond to appropriate prior probabilities for edges and
-    % variables
-    b = 0.1;
-    
-    % c_e = desired prior probability of edges = number of edges among true
-    % variables divided by total possible number of edges
-    c_e = ((sum(sum(abs(Omega_true(1:p_true, 1:p_true)) > 0)) - p_true) / 2) / ...
-        ( p  * (p - 1) / 2);
-    lambda_mrf = -c_e / (c_e * (exp(2 * b) - 1) - exp(2 * b));
-    
-    % c_v = desired prior probability of variables
-    c_v = p_true / p;
-    a = log(c_v / (1 - c_v)) - 2 * b * p / 10;
+    b = 0.5;
+    a = -2.5;
 
     % Prior probability of variable inclusion for Bayesian variable selection
     lambda_bvs = p_true / p;
@@ -394,16 +374,27 @@ for model = 1:nmodel
             cur_perf_summary(5, 4) = pmse_BVS_median;
             
             % PROPOSED METHOD -----------------------------------------------------
-            % Initial value of Omega (precision matrix)
-            Omega_init = eye(p);
+            % Fix some hyperparameters
+            % Note that the parameterization used in the code is slightly different from those in Wang (2014).
+            % (h in code) =  (h in paper )^2
+            h = 100^2;
+            
+            % (v0 in code) = (v0 in paper)^2
+            v0 = 0.05^2;
+            
+            % (v1 in code) = (v1 in paper)^2
+            v1 = h * v0;
+            
+            lambda = 1;
+            pii = 2 / (p - 1);
             
             % Run MCMC sampler for joint graph and variable selection
             % Clinical covariates Z are set to all zeros here
             % Since p is large, param summary_only is set to true            
             tic
-            [gamma_save, Omega_save, adj_save, ar_gamma, info] = MCMC_LM_GWishart_simplified(X, Y, zeros(n, 5), ...
-                a_0, b_0, h_alpha, h_beta, a, b, lambda_mrf, delta_prior, D_prior, ...
-                gamma_init, Omega_init, burnin, nmc, true);
+            [gamma_save, Omega_save, adj_save, ar_gamma, info] = MCMC_LM_scalable_simplified(X, Y, zeros(n, 5), ...
+                a_0, b_0, h_alpha, h_beta, a, b, v0, v1, lambda, pii, ...
+                gamma_init, burnin, nmc, true);
             toc
             
             % Collect additional performance information for proposed
@@ -425,7 +416,7 @@ for model = 1:nmodel
             % Save plot of MCMC performance
             % NOTE: may need to turn this off when running in batch mode on
             % the cluster
-            h = plot(1:(burnin + nmc), sum(info.full_gamma, 1))
+            plot(1:(burnin + nmc), sum(info.full_gamma, 1))
             hold on
             line([1,(burnin + nmc)], [p_true, p_true], 'Color', 'green')
             plot(1:(burnin + nmc), sum(info.full_gamma(1:p_true, :), 1), 'Color', 'red')
@@ -449,7 +440,6 @@ for model = 1:nmodel
             % Check selected edges against true graph (i.e. true edges
             % among true variables)
             sel_edges = sel_edges(upperind);
-            sel_edges = sel_edges(1: (p_true * (p_true - 1) / 2));
             tp_edges = sum(sel_edges & Adj_true);
             fp_edges = sum(sel_edges & ~Adj_true);
             tn_edges = sum(~sel_edges & ~Adj_true);
@@ -462,6 +452,7 @@ for model = 1:nmodel
             
             fprintf('edge_tpr = %g\n', tpr_edges);
             fprintf('edge_fpr = %g\n', fpr_edges);
+            [tpr_edges, fpr_edges, mcc_edges] = tpr_fpr_var(sel_edges, Adj_true);
             
             edge_sel_perf(:, model, cur_iter) = [tpr_edges, fpr_edges];
             

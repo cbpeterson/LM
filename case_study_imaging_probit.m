@@ -1,5 +1,5 @@
 % For running locally
-cd 'C:\Users\Marina\Desktop\LM only code\Code\branch2 - independent noise'
+cd 'C:\Users\Marina\Desktop\LM only code\Code\branch3 - sample full graph'
 addpath '.\rmnvrnd';
 addpath '.\logmvnpdf';
 addpath 'C:\Research\Graphical models\Papers\Wang Li 2012 with code\Code - original download';
@@ -31,25 +31,18 @@ Rho = my_parcorr(S);
 h_alpha = 0;
 h_beta = 1;
 
-% Prior params for G-Wishart
-delta_prior = 3;
-D_prior = eye(p);
-
 % Number of MCMC iterations
 burnin  = 10000;
 nmc = 10000;
 
-% Parameters of MRF prior - how to determine proper settings for a and b?
-% Li and Zhang discuss this, esp phase transition property
-a = -5.2;
-b = 0.01;
-lambda_mrf = 0.001;
+% Use parameters from Stingo imaging paper
+a = -4.5;
+b = 0.5;
 
 % Parameter h_0 affects variance of normal prior on intercept
 h_0 = 1e6;
 
-% Initial value of Omega (precision matrix) and gamma
-Omega_init = eye(p);
+% Initial value of gamma
 gamma_init = zeros(p, 1);
 
 % Check results from glm fit
@@ -62,15 +55,30 @@ scatter([0; beta], beta_glm)
 % Does regulatization help? YES, lasso is able to handle this
 [B_lasso, FitInfo] = lassoglm(X, W, 'binomial', 'Link', 'probit');
 % Can check against these results to see if top vars are similar
+find(B_lasso(:, 88))
+% Some good vars as identified by lasso
+
+% Note that the parameterization used in the code is slightly different from those in Wang (2014).
+% (h in code) =  (h in paper )^2
+h = 100^2;
+
+% (v0 in code) = (v0 in paper)^2
+v0 = 0.1^2;
+
+% (v1 in code) = (v1 in paper)^2
+v1 = h * v0;
+
+lambda = 1;
+pii = 2 / (p - 1);
 
 % Run MCMC sampler for joint graph and variable selection
 % Clinical covariates Z are set to all zeros here
 % Since p is large, param summary_only is set to true
 tic
-[gamma_save, Omega_save, adj_save, ar_gamma, info, Y_save] = MCMC_LM_GWishart_probit(X, ...
+[gamma_save, Omega_save, adj_save, ar_gamma, info, Y_save] = MCMC_LM_scalable_probit(X, ...
     W, zeros(n, 5), ...
-    h_0, h_alpha, h_beta, a, b, lambda_mrf, delta_prior, D_prior, ...
-    gamma_init, Omega_init, burnin, nmc, true);
+    h_0, h_alpha, h_beta, a, b, v0, v1, lambda, pii, ...
+    gamma_init, burnin, nmc, true);
 toc
 
 % Get performance of graph structure learning
