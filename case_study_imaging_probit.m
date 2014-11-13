@@ -32,11 +32,11 @@ h_alpha = 0;
 h_beta = 1;
 
 % Number of MCMC iterations
-burnin  = 10000;
-nmc = 10000;
+burnin  = 2000;
+nmc = 2000;
 
 % Use parameters from Stingo imaging paper
-a = -4.5;
+a = -2.5;
 b = 0.5;
 
 % Parameter h_0 affects variance of normal prior on intercept
@@ -60,16 +60,18 @@ find(B_lasso(:, 88))
 
 % Note that the parameterization used in the code is slightly different from those in Wang (2014).
 % (h in code) =  (h in paper )^2
-h = 100^2;
+h = 300^2;
 
 % (v0 in code) = (v0 in paper)^2
-v0 = 0.1^2;
+v0 = 0.35^2;
 
 % (v1 in code) = (v1 in paper)^2
 v1 = h * v0;
 
 lambda = 1;
 pii = 2 / (p - 1);
+
+rng(34689);
 
 % Run MCMC sampler for joint graph and variable selection
 % Clinical covariates Z are set to all zeros here
@@ -86,7 +88,7 @@ toc
 % Save plot of MCMC performance
 % NOTE: may need to turn this off when running in batch mode on
 % the cluster
-h = plot(1:(burnin + nmc), sum(info.full_gamma, 1))
+plot(1:(burnin + nmc), sum(info.full_gamma, 1))
 xlabel('Iteration')
 ylabel('Number of variables')
 title('Blue = total selections')
@@ -100,43 +102,8 @@ sel_var = ppi_var > 0.5;
 % Edges selected using marginal PPI threshold of 0.5
 sel_edges = ppi_edges > 0.5;
 
-% Check selected edges against true graph (i.e. true edges
-% among true variables)
-sel_edges = sel_edges(upperind);
-sel_edges = sel_edges(1: (p_true * (p_true - 1) / 2));
-tp_edges = sum(sel_edges & Adj_true);
-fp_edges = sum(sel_edges & ~Adj_true);
-tn_edges = sum(~sel_edges & ~Adj_true);
-fn_edges = sum(~sel_edges & Adj_true);
+% How many edges are selected and what is overall sparsity level?
+(sum(sum(sel_edges)) - p) / 2
+(sum(sum(sel_edges)) - p) / p / (p-1)
 
-% True positive rate and false positive rate for edge
-% selection among true variables
-tpr_edges = tp_edges / (tp_edges + fn_edges);
-fpr_edges = fp_edges / (fp_edges + tn_edges);
 
-fprintf('edge_tpr = %g\n', tpr_edges);
-fprintf('edge_fpr = %g\n', fpr_edges);
-
-% Question: how similar are Y estimates to true Y values?
-Y_est = mean(Y_save, 2);
-scatter(Y_true, Y_est, 10);
-hold on
-scatter(Y_true(W == 1), Y_est(W == 1), 10, 'red');
-hold off
-xlabel('True Y');
-ylabel('MCMC estimate of Y');
-title(sprintf('Comparison between true and estimated Y values'));
-
-% Check if we approach correct W value across iterations for censored W
-% Choose a censored value at random
-cens_ind = find(~dcen, 1);
-h = plot(1:(burnin + nmc), info.full_W(cens_ind, :))
-hold on
-line([1,(burnin + nmc)], [log(T(cens_ind)), log(T(cens_ind))], 'Color', 'green')
-line([1,(burnin + nmc)], [log(T_star(cens_ind)), log(T_star(cens_ind))], 'Color', 'red')
-% MCMC average
-% line([1,(burnin + nmc)], [mean(W_save(cens_ind, :)), mean(W_save(cens_ind, :))], 'Color', 'yellow')
-hold off
-xlabel('Iteration')
-ylabel('Value of W')
-title('Green = true value of log(T), red = log(T star), blue = sampled W values')

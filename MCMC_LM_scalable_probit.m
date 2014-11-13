@@ -1,4 +1,4 @@
-function [gamma_save, Omega_save, adj_save, ar_gamma, info, Y_save] = MCMC_LM_scalable_simplified(X, W, Z, ...
+function [gamma_save, Omega_save, adj_save, ar_gamma, info, Y_save] = MCMC_LM_scalable_probit(X, W, Z, ...
     h_0, h_alpha, h_beta, a, b, v0, v1, lambda, pii, ...
     gamma, burnin, nmc, summary_only)
 
@@ -18,9 +18,9 @@ Y_save = zeros(n, nmc);
 full_Y_save = zeros(n, burnin + nmc);
 
 % Initial guess for Sigma, precision matrix, and adjacency matrix
-Sig = S / n;
+Sig = eye(p);
 Omega = inv(Sig);
-adj = ones(p);
+adj = eye(p);
 
 V0 = v0 * ones(p);
 V1 = v1 * ones(p);

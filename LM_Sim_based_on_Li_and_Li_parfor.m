@@ -196,6 +196,10 @@ for model = 1:nmodel
     lambda_bvs = p_true / p;
     
     parfor cur_iter = 1:niter
+        % Set random number seed to be specific to iter and model in case I
+        % want to parallelize this later
+        rng(model * 1717 + cur_iter * 3);
+        
         % Record performance summmary for current model
         % Dim 1: 4 = sens, spec, mcc, pmse
         % Dim 2: 5 = lasso, en, LL, selection using graph, selection w/o graph
@@ -380,7 +384,7 @@ for model = 1:nmodel
             h = 100^2;
             
             % (v0 in code) = (v0 in paper)^2
-            v0 = 0.05^2;
+            v0 = 0.1^2;
             
             % (v1 in code) = (v1 in paper)^2
             v1 = h * v0;

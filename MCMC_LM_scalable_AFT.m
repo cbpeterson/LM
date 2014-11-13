@@ -1,5 +1,5 @@
-function [gamma_save, Omega_save, adj_save, ar_gamma, info] = MCMC_LM_scalable_simplified(X, Y, Z, ...
-    a_0, b_0, h_alpha, h_beta, a, b, v0, v1, lambda, pii, ...
+function [gamma_save, Omega_save, adj_save, ar_gamma, info, W_save] = MCMC_LM_scalable_AFT(X, T, dcen, Z, ...
+    a_0, b_0, h_0, h_alpha, h_beta, a, b, v0, v1, lambda, pii, ...
     gamma, burnin, nmc, summary_only)
 
 % Standardize data so that S(i,i) = n 
@@ -7,7 +7,18 @@ S = X' * X;
 [n, p] = size(X);
 S = corrcoef(S) * n;
 
-% Initial guess for Sigma, precision matrix, and adjacency matrix
+% Log transform T to get Y, and use this as initial value for W.
+Y = log(T);
+W = Y;
+
+% Sampled values of W to return
+W_save = zeros(n, nmc);
+
+% Additional values as "info" including burnin
+full_W_save = zeros(n, burnin + nmc);
+
+% Initial guess for Sigma, precision matrix, and adjacency matrix.
+% Start from empty graph
 Sig = eye(p);
 Omega = inv(Sig);
 adj = eye(p);
@@ -89,7 +100,7 @@ for iter = 1: burnin + nmc
     gamma_prop(change_index) = abs(gamma(change_index) - 1);
 
     % Compute MH ratio on log scale
-    log_r = log_r_y(gamma, gamma_prop, X, Y, Z, 0, h_alpha, h_beta, a_0, b_0) + ...
+    log_r = log_r_y(gamma, gamma_prop, X, Y, Z, h_0, h_alpha, h_beta, a_0, b_0) + ...
         log_r_gamma_given_G(gamma, gamma_prop, adj, a, b);
     
     % Accept proposal with probability r
@@ -166,8 +177,15 @@ for iter = 1: burnin + nmc
         adj(i,ind_noi) = z; 
     end
     
+    % Sample latent variables
+    X_gamma = X(:, find(gamma));
+    Pr = eye(n) + h_0 * (ones(n, 1) * ones(1, n)) + h_alpha * (Z * Z') + h_beta * (X_gamma * X_gamma');
+    mu = zeros(n, 1);
+    W = multrunct(W, mu, 2 * a_0, Pr, 2 * b_0, dcen, Y);
+    
     if iter > burnin
         gamma_save(:, iter-burnin) = gamma;
+        W_save(:, iter-burnin) = W;
         pii_RB = pii_RB + pii_mat/nmc;
 
         if summary_only
@@ -181,6 +199,7 @@ for iter = 1: burnin + nmc
     
     full_gamma_save(:, iter) = gamma;
     node_degrees(:, iter) = sum(adj, 2) - 1;
+    full_W_save(:, iter) = W;
 
 end
 
@@ -190,4 +209,5 @@ ar_gamma = n_gamma_accept / n_gamma_prop;
 info = struct('n_add_prop', n_add_prop, 'n_add_accept', n_add_accept, ...
     'n_remove_prop', n_remove_prop, 'n_remove_accept', n_remove_accept, ...
     'full_gamma', full_gamma_save, ...
-    'node_degrees', node_degrees);
+    'node_degrees', node_degrees, ...
+    'full_W', full_W_save);
