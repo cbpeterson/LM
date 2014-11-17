@@ -8,18 +8,27 @@ addpath 'C:\Users\Marina\Desktop\LM only code\Code\BVSSURV\'
 load '..\Case studies\TCPA - GBM\GBM_survival.mat';
 [n, p] = size(X);
 
-% Standardize predictors
-X = zscore(X);
+% Set seed to ensure that we end up with same training and tests sets and
+% that results are reproducible
+rng(9023);
 
-% Empirical covariance matrix and precision matrix
-Sigma = X' * X / n;
-Omega = inv(Sigma);
+% Divide into training and test sets at random
+n_train = 150;
+ind_train = randsample(n, n_train);
+X_train = X(ind_train, :);
+age_train = age(ind_train, 1);
+gender_train = gender(ind_train, 1);
+t_star_train = t_star(ind_train, 1);
+delta_train = delta(ind_train, 1);
+
+% Standardize predictors
+X_train = zscore(X_train);
 
 % Covariates Z
-Z = [age, gender];
+Z_train = [age_train, gender_train];
 
 % Standardize these
-Z = zscore(Z);
+Z_train = zscore(Z_train);
 
 % Shape and scale of inverse gamma prior on tau^2
 % Parameters chosen based on recmmendations in Stingo paper
@@ -36,22 +45,22 @@ h_beta = 1;
 gamma_init = zeros(p, 1);
 
 % Number of MCMC iterations
-burnin  = 2000;
-nmc = 2000;
+burnin  = 5000;
+nmc = 5000;
 
 % Paramters to be tuned
-a = -3;
-b = 0.5;
+a = -2.7;
+b = 0.3;
 
 % Parameter h_0 affects variance of normal prior on intercept
 h_0 = 1e6;
 
 % Note that the parameterization used in the code is slightly different from those in Wang (2014).
 % (h in code) =  (h in paper )^2
-h = 250^2;
+h = 200^2;
 
 % (v0 in code) = (v0 in paper)^2
-v0 = 0.25^2;
+v0 = 0.20^2;
 
 % (v1 in code) = (v1 in paper)^2
 v1 = h * v0;
@@ -59,12 +68,10 @@ v1 = h * v0;
 lambda = 1;
 pii = 2 / (p - 1);
 
-rng(1435);
-
 % Run MCMC sampler for joint graph and variable selection
 tic
-[gamma_save, Omega_save, adj_save, ar_gamma, info, W_save] = MCMC_LM_scalable_AFT(X, ...
-    t_star, delta, Z, ...
+[gamma_save, Omega_save, adj_save, ar_gamma, info, W_save] = MCMC_LM_scalable_AFT(X_train, ...
+    t_star_train, delta_train, Z_train, ...
     a_0, b_0, h_0, h_alpha, h_beta, a, b, v0, v1, lambda, pii, ...
     gamma_init, burnin, nmc, true);
 toc
@@ -72,10 +79,10 @@ toc
 % Compare W estimates to censored times. Note that W_save is really log of
 % times.
 W_est = mean(W_save, 2);
-obs_time = log(t_star);
-scatter(log(t_star), mean(W_save, 2))
+obs_time = log(t_star_train);
+scatter(log(t_star_train), mean(W_save, 2))
 hold on;
-scatter(obs_time(find(delta)), W_est(find(delta)), 6, 'red');
+scatter(obs_time(find(delta_train)), W_est(find(delta_train)), 6, 'red');
 hold off;
 
 % Save plot of MCMC performance

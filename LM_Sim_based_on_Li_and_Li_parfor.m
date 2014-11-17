@@ -1,16 +1,13 @@
 % For running locally
 cd 'C:\Users\Marina\Desktop\LM only code\Code\branch3 - sample full graph'
 addpath 'C:\Research\Graphical models\Papers\Wang Li 2012 with code\Code - original download';
-addpath 'C:\Users\Marina\Desktop\LM only code\Code\glmnet_matlab';
+addpath '.\glmnet_matlab_Nov14';
 % if matlabpool('size') == 0
 %    matlabpool(2)
 % end
 
 % Number of iterations to run at each setting for n
-niter = 100;
-
-% In case I need to debug
-dbstop if error;
+niter = 50;
 
 % Settings from Li and Li paper - run first three methods to replicate
 % results in their paper
@@ -64,8 +61,8 @@ best_lambda2_save = zeros(nmodel, niter);
 edge_sel_perf = zeros(2, nmodel, niter); % First dim = tpr and fpr
 
 % Number of MCMC iterations for Bayesian methods
-burnin  = 10000;
-nmc = 10000;
+burnin  = 5000;
+nmc = 5000;
 
 for model = 1:nmodel
     % Record performance summmary for current model
@@ -190,7 +187,7 @@ for model = 1:nmodel
     % Parameters of MRF prior - how to determine proper settings for a and b?
     % Li and Zhang discuss this, esp phase transition property
     b = 0.5;
-    a = -2.5;
+    a = -3;
 
     % Prior probability of variable inclusion for Bayesian variable selection
     lambda_bvs = p_true / p;
