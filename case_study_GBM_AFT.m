@@ -10,7 +10,7 @@ load '..\Case studies\TCPA - GBM\GBM_survival.mat';
 
 % Set seed to ensure that we end up with same training and tests sets and
 % that results are reproducible
-rng(9023);
+rng(9025);
 
 % Divide into training and test sets at random
 n_train = 150;
@@ -32,7 +32,7 @@ Z_train = zscore(Z_train);
 
 % Shape and scale of inverse gamma prior on tau^2
 % Parameters chosen based on recmmendations in Stingo paper
-a_0 = 3;
+a_0 = -2.5;
 b_0 = 0.5;
 
 % Since covariates and predictors are standardzed, set these to 1
@@ -49,8 +49,8 @@ burnin  = 5000;
 nmc = 5000;
 
 % Paramters to be tuned
-a = -2.7;
-b = 0.3;
+a = -2.5;
+b = 0.5;
 
 % Parameter h_0 affects variance of normal prior on intercept
 h_0 = 1e6;
@@ -108,7 +108,4 @@ sel_edges(sel_var, sel_var)
 % How many edges are selected and what is overall sparsity level?
 (sum(sum(sel_edges)) - p) / 2
 (sum(sum(sel_edges)) - p) / p / (p-1)
-
-S = X' * X / n;
-Rho = my_parcorr(S);
 

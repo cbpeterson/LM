@@ -154,7 +154,12 @@ gamma_true = cat(1, ones(p_true, 1), zeros(p - p_true, 1));
 % Parameters of MRF prior - how to determine proper settings for a and b?
 % Li and Zhang discuss this, esp phase transition property
 b = 0.5;
-a = -2;
+
+if model == 1 || model == 2
+  a = -3;
+else
+  a = -2.3;
+end
 
 % Prior probability of variable inclusion for Bayesian variable selection
 lambda_bvs = p_true / p;
