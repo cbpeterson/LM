@@ -1,14 +1,18 @@
 % For running on the cluster
 % Assume argument "run" is defined on the command line and is between 1 and 200
-cd '/hsgs/nobackup/cbp/LM_plus_graph/branch3'
-addpath '../glmnet_matlab';
+addpath '/hsgs/nobackup/cbp/LM_plus_graph/branch3/';
+addpath '/hsgs/nobackup/cbp/LM_plus_graph/glmnet_matlab';
 
 niter = 50;
 cur_iter = mod(run, niter);
 if cur_iter == 0
     cur_iter = niter;
 end
-model = (run - cur_iter) / 50 + 1;
+
+% Assume we are always in model 1, but parameters are changing
+model = 1;
+a_setting = (run - cur_iter) / 50 + 1;
+cd(fullfile(strcat('/hsgs/nobackup/cbp/LM_plus_graph/branch3/Output/Simulation/Sensitivity/a_setting', num2str(a_setting))))
 
 % Number of transcription factors
 num_tfs = 40;
@@ -19,7 +23,7 @@ g_per_tf = 5;
 % Number of genes with sign changed in models 2 and 4
 g_change = 2;
 
-input_folder = '../Simulation/Inputs/ReducedDim/';
+input_folder = '/hsgs/nobackup/cbp/LM_plus_graph/Simulation/Inputs/ReducedDim/';
 
 % Sample size for training and test sets
 n = 100;
@@ -75,6 +79,22 @@ switch model
             -3, repmat(3 / 10, g_change, 1), ...
             repmat(-3 / 10, g_per_tf - g_change, 1));
 end
+
+switch a_setting
+    case 1
+      a = -3.5;
+    case 2
+      a = -3.25;
+    case 3
+      a = -3;
+    case 4
+      a = -2.75;
+    case 5
+      a = -2.5;
+    case 6
+      a = -2.25;
+end
+
 
 % Number of true predictors is number of nonzero beta
 p_true = size(beta_nonzero, 1);
@@ -154,7 +174,6 @@ gamma_true = cat(1, ones(p_true, 1), zeros(p - p_true, 1));
 % Parameters of MRF prior - how to determine proper settings for a and b?
 % Li and Zhang discuss this, esp phase transition property
 b = 0.5;
-a = -2.75;
 
 % Prior probability of variable inclusion for Bayesian variable selection
 lambda_bvs = p_true / p;
@@ -353,13 +372,13 @@ toc
 
 % Collect additional performance information for proposed
 % method
-csvwrite(strcat('./Output/mh_info_model', num2str(model), '_iter', ...
+csvwrite(strcat('./mh_info_model', num2str(model), '_iter', ...
     num2str(cur_iter), '.csv'), ...
     [info.n_add_prop', info.n_add_accept' ...
     info.n_remove_prop', info.n_remove_accept']);
-csvwrite(strcat('./Output/full_gamma__model', num2str(model), '_iter', ...
+csvwrite(strcat('./full_gamma__model', num2str(model), '_iter', ...
     num2str(cur_iter), '.csv'), info.full_gamma');
-csvwrite(strcat('./Output/node_degrees_model', num2str(model), '_iter', ...
+csvwrite(strcat('./node_degrees_model', num2str(model), '_iter', ...
     num2str(cur_iter), '.csv'), info.node_degrees');
 
 % Get performance of graph structure learning
@@ -375,7 +394,7 @@ hold off;
 xlabel('Iteration');
 ylabel('Number of variables');
 title('Green = true, red = true selections, blue = total selections');
-saveas(h, strcat('./Output/MCMC_traceplot_model', num2str(model), '_iter', ...
+saveas(h, strcat('./MCMC_traceplot_model', num2str(model), '_iter', ...
     num2str(cur_iter), '.png'), 'png');
 
 ppi_var = mean(gamma_save, 2);
@@ -423,9 +442,9 @@ cur_perf_summary(3, 5) = mcc_var;
 cur_perf_summary(4, 5) = my_pmse;
 
 % Record performance for current iteration
-csvwrite(strcat('./Output/perf_summary_', num2str(model), '_iter', ...
+csvwrite(strcat('./perf_summary_', num2str(model), '_iter', ...
     num2str(cur_iter), '.csv'), cur_perf_summary);
-csvwrite(strcat('./Output/perf_edges_', num2str(model), '_iter', ...
+csvwrite(strcat('./perf_edges_', num2str(model), '_iter', ...
     num2str(cur_iter), '.csv'), [tpr_edges, fpr_edges, mcc_edges]);
 
 

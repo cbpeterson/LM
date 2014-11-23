@@ -1,11 +1,10 @@
 % Test performance using X matrix from case study
-cd 'C:\Users\Marina\Desktop\LM only code\Code\branch3 - sample full graph';
-addpath 'C:\Research\Graphical models\Papers\Wang Li 2012 with code\Code - original download';
-addpath 'C:\Users\Marina\Desktop\LM only code\Code\glmnet_matlab';
-addpath 'C:\Users\Marina\Desktop\LM only code\Code\BVSSURV\'
+cd '/hsgs/nobackup/cbp/LM_plus_graph/branch3';
+addpath '/hsgs/nobackup/cbp/LM_plus_graph/glmnet_matlab';
+addpath '/hsgs/nobackup/cbp/LM_plus_graph/BVSSURV';
 
 % Load data from file
-load '..\Case studies\TCPA - GBM\GBM_survival.mat';
+load '../Case_studies/TCPA_GBM/GBM_survival.mat';
 [n, p] = size(X);
 
 % Set seed to ensure that we end up with same training and tests sets and
@@ -13,7 +12,7 @@ load '..\Case studies\TCPA - GBM\GBM_survival.mat';
 rng(9025);
 
 % Divide into training and test sets at random
-n_train = 150;
+n_train = 175;
 ind_train = randsample(n, n_train);
 X_train = X(ind_train, :);
 age_train = age(ind_train, 1);
@@ -32,7 +31,7 @@ Z_train = zscore(Z_train);
 
 % Shape and scale of inverse gamma prior on tau^2
 % Parameters chosen based on recmmendations in Stingo paper
-a_0 = -2.5;
+a_0 = 3;
 b_0 = 0.5;
 
 % Since covariates and predictors are standardzed, set these to 1
@@ -45,22 +44,24 @@ h_beta = 1;
 gamma_init = zeros(p, 1);
 
 % Number of MCMC iterations
-burnin  = 5000;
-nmc = 5000;
+burnin  = 10000;
+nmc = 10000;
 
 % Paramters to be tuned
-a = -2.5;
+a = -1.5;
+fprintf('a = %g\n', a);
 b = 0.5;
+fprintf('b = %g\n', b);
 
 % Parameter h_0 affects variance of normal prior on intercept
 h_0 = 1e6;
 
 % Note that the parameterization used in the code is slightly different from those in Wang (2014).
 % (h in code) =  (h in paper )^2
-h = 200^2;
+h = 600^2;
 
 % (v0 in code) = (v0 in paper)^2
-v0 = 0.20^2;
+v0 = 0.6^2;
 
 % (v1 in code) = (v1 in paper)^2
 v1 = h * v0;
@@ -88,16 +89,21 @@ hold off;
 % Save plot of MCMC performance
 % NOTE: may need to turn this off when running in batch mode on
 % the cluster
-plot(1:(burnin + nmc), sum(info.full_gamma, 1))
+trace_plot = plot(1:(burnin + nmc), sum(info.full_gamma, 1))
 xlabel('Iteration')
 ylabel('Number of variables')
 title('Blue = total selections')
+saveas(trace_plot, strcat('./Output/MCMC_traceplot_GBM_ntrain', num2str(n_train), '_a', ...
+    num2str(a), '_b', num2str(b), '.png'), 'png');
 
 ppi_var = mean(gamma_save, 2);
 ppi_edges = adj_save;
 
 % Get true and false positive rates for variable selection
 sel_var = ppi_var > 0.5;
+fprintf('Number of selected variables = %g\n', sum(sel_var));
+fprintf('Variable selections:');
+find(sel_var)
 
 % Edges selected using marginal PPI threshold of 0.5
 sel_edges = ppi_edges > 0.5;
@@ -108,4 +114,3 @@ sel_edges(sel_var, sel_var)
 % How many edges are selected and what is overall sparsity level?
 (sum(sum(sel_edges)) - p) / 2
 (sum(sum(sel_edges)) - p) / p / (p-1)
-
