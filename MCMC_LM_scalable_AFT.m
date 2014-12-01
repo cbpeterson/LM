@@ -117,64 +117,66 @@ for iter = 1: burnin + nmc
         n_gamma_accept = n_gamma_accept + 1;
     end
     
-    % Resample precision matrix and graph
-    %%% sample Sig and Omega = inv(Sig)
-    for i = 1:p
-        ind_noi = ind_noi_all(:,i);
-        tau_temp = tau(ind_noi,i);
-        
-        Sig11 = Sig(ind_noi,ind_noi);
-        Sig12 = Sig(ind_noi,i);
-        
-        invC11 = Sig11 - Sig12*Sig12'/Sig(i,i);
-        
-        Ci = (S(i,i)+lambda)*invC11+diag(1./tau_temp);
-        Ci = (Ci+Ci')./2;
-        Ci_chol = chol(Ci);
-        mu_i = -Ci_chol\(Ci_chol'\S(ind_noi,i));
-        beta = mu_i+ Ci_chol\randn(p-1,1);
-
-        Omega(ind_noi,i) = beta;
-        Omega(i,ind_noi) = beta;
-        
-        a_gam = 0.5*n+1;
-        b_gam = (S(i,i)+lambda)*0.5;
-        gam = gamrnd(a_gam,1/b_gam);
-        
-        c = beta'*invC11*beta;
-        Omega(i,i) = gam+c;
-        
-        %% Below updating Covariance matrix according to one-column change of precision matrix
-        invC11beta = invC11*beta;
-        
-        Sig(ind_noi,ind_noi) = invC11+invC11beta*invC11beta'/gam;
-        Sig12 = -invC11beta/gam;
-        Sig(ind_noi,i) = Sig12;
-        Sig(i,ind_noi) = Sig12';
-        Sig(i,i) = 1/gam;  
-        
-        v0 = V0(ind_noi,i);
-        v1 = V1(ind_noi,i);
-        
-        w1 = -0.5*log(v0) -0.5*beta.^2./v0+log(1-pii);
-        w2 = -0.5*log(v1) -0.5*beta.^2./v1+log(pii);
-        
-        w_max = max([w1,w2],[],2);
-        
-        w = exp(w2-w_max)./sum(exp([w1,w2]-repmat(w_max,1,2)),2);
-        
-        z = (rand(p-1,1)<w);
-        
-        v = v0;
-        v(z) = v1(z);
-        
-        pii_mat(ind_noi,i) = w;
-        
-        tau(ind_noi,i) = v;
-        tau(i,ind_noi) = v;
-        
-        adj(ind_noi,i) = z;
-        adj(i,ind_noi) = z; 
+    % Resample precision matrix and graph if pii > 0
+    if pii > 0
+        %%% sample Sig and Omega = inv(Sig)
+        for i = 1:p
+            ind_noi = ind_noi_all(:,i);
+            tau_temp = tau(ind_noi,i);
+            
+            Sig11 = Sig(ind_noi,ind_noi);
+            Sig12 = Sig(ind_noi,i);
+            
+            invC11 = Sig11 - Sig12*Sig12'/Sig(i,i);
+            
+            Ci = (S(i,i)+lambda)*invC11+diag(1./tau_temp);
+            Ci = (Ci+Ci')./2;
+            Ci_chol = chol(Ci);
+            mu_i = -Ci_chol\(Ci_chol'\S(ind_noi,i));
+            beta = mu_i+ Ci_chol\randn(p-1,1);
+            
+            Omega(ind_noi,i) = beta;
+            Omega(i,ind_noi) = beta;
+            
+            a_gam = 0.5*n+1;
+            b_gam = (S(i,i)+lambda)*0.5;
+            gam = gamrnd(a_gam,1/b_gam);
+            
+            c = beta'*invC11*beta;
+            Omega(i,i) = gam+c;
+            
+            %% Below updating Covariance matrix according to one-column change of precision matrix
+            invC11beta = invC11*beta;
+            
+            Sig(ind_noi,ind_noi) = invC11+invC11beta*invC11beta'/gam;
+            Sig12 = -invC11beta/gam;
+            Sig(ind_noi,i) = Sig12;
+            Sig(i,ind_noi) = Sig12';
+            Sig(i,i) = 1/gam;
+            
+            v0 = V0(ind_noi,i);
+            v1 = V1(ind_noi,i);
+            
+            w1 = -0.5*log(v0) -0.5*beta.^2./v0+log(1-pii);
+            w2 = -0.5*log(v1) -0.5*beta.^2./v1+log(pii);
+            
+            w_max = max([w1,w2],[],2);
+            
+            w = exp(w2-w_max)./sum(exp([w1,w2]-repmat(w_max,1,2)),2);
+            
+            z = (rand(p-1,1)<w);
+            
+            v = v0;
+            v(z) = v1(z);
+            
+            pii_mat(ind_noi,i) = w;
+            
+            tau(ind_noi,i) = v;
+            tau(i,ind_noi) = v;
+            
+            adj(ind_noi,i) = z;
+            adj(i,ind_noi) = z;
+        end
     end
     
     % Sample latent variables
